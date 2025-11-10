@@ -6,21 +6,47 @@ namespace Slowshooter
     internal class Program
     {
 
-        static string playField = 
-@"+---+   +---+
-|   |   |   |
-|   |   |   |
-|   |   |   |
-+---+   +---+";
+        static string playField =
+@"+------+     +------+
+|      |     |      |
+|      |     |      |
+|      |     |      |
+|      |     |      |
++------+     +------+";
 
-        static bool isPlaying = true;
+        static string p1_field =
+@"+------+
+|      |
+|      |
+|      |
+|      |
++------+";
+
+        static string p2_field =
+@"            +------+
+            |      |
+            |      |
+            |      |
+            |      |
+            +------+";
+
+        static bool preGame = true;
+        static bool isPlaying = false;
+
+        static bool p1_placingMine;
+        static bool p2_placingMine;
 
         // player input 
         static int p1_x_input;
         static int p1_y_input;
+        static int p1_minesCount;
+        static int p1_minesDisplay;
+        
 
         static int p2_x_input;
         static int p2_y_input;
+        static int p2_minesCount;
+        static int p2_minesDisplay;
 
         // player 1 pos
         static int p1_x_pos = 2;
@@ -31,22 +57,30 @@ namespace Slowshooter
         static int p2_y_pos = 2;
 
         // bounds for player movement
-        static (int, int) p1_min_max_x = (1, 3);
-        static (int, int) p1_min_max_y = (1, 3);
-        static (int, int) p2_min_max_x = (9, 11);
-        static (int, int) p2_min_max_y = (1, 3);
+        static (int, int) p1_min_max_x = (1, 6);
+        static (int, int) p1_min_max_y = (1, 4);
+        static (int, int) p2_min_max_x = (14, 19);
+        static (int, int) p2_min_max_y = (1, 4);
 
         // what turn is it? will be 0 after game is drawn the first time
         static int turn = -1;
 
         // contains the keys that player 1 and player 2 are allowed to press
-        static (char[], char[]) allKeybindings = (new char[]{ 'W', 'A', 'S', 'D' }, new char[]{ 'J', 'I', 'L', 'K' });
+        static (char[], char[]) allKeybindings = (new char[]{ 'W', 'A', 'S', 'D', 'E' }, new char[]{ 'J', 'I', 'L', 'K', 'O' });
         static ConsoleColor[] playerColors = { ConsoleColor.Red, ConsoleColor.Blue };
 
         static void Main(string[] args)
         {
             Console.CursorVisible = false;
+            turn = 0;
 
+            while (preGame)
+            {
+                PreInput();
+                PreUpdate();
+                PreDraw();
+            }
+            
             while(isPlaying)
             {
                 ProcessInput();
@@ -129,7 +163,145 @@ namespace Slowshooter
             Console.Write("O");
 
             // draw the Turn Indicator
-            Console.SetCursorPosition(3, 5);
+            Console.SetCursorPosition(3, 7);
+            Console.ForegroundColor = playerColors[turn % 2];
+
+            Console.Write($"PLAYER {turn % 2 + 1}'S TURN!");
+
+
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("\nUSE WASD or IJKL to move");
+            Console.ForegroundColor = ConsoleColor.White;
+        }
+
+        static void PreInput()
+        {
+            // if this isn't here, input will block the game before drawing for the first time
+            if (turn == -1) return;
+
+            // reset input
+            p1_x_input = 0;
+            p1_y_input = 0;
+            p2_x_input = 0;
+            p2_y_input = 0;
+
+            
+
+            char[] allowedKeysThisTurn; // different keys allowed on p1 vs. p2 turn
+
+            // choose which keybindings to use
+            if (turn % 2 == 0) allowedKeysThisTurn = allKeybindings.Item1;
+            else allowedKeysThisTurn = allKeybindings.Item2;
+
+            // get the current player's input
+            ConsoleKey input = ConsoleKey.NoName;
+            while (!allowedKeysThisTurn.Contains(((char)input)))
+            {
+                input = Console.ReadKey(true).Key;
+            }
+
+            // check all input keys 
+            if (input == ConsoleKey.A) p1_x_input = -1;
+            if (input == ConsoleKey.D) p1_x_input = 1;
+            if (input == ConsoleKey.W) p1_y_input = -1;
+            if (input == ConsoleKey.S) p1_y_input = 1;
+            if (input == ConsoleKey.E)
+            {
+                p1_minesCount++;
+                p1_minesDisplay++;
+                p1_placingMine = true;
+            }
+
+
+            if (input == ConsoleKey.J) p2_x_input = -1;
+            if (input == ConsoleKey.L) p2_x_input = 1;
+            if (input == ConsoleKey.I) p2_y_input = -1;
+            if (input == ConsoleKey.K) p2_y_input = 1;
+            if (input == ConsoleKey.O)
+            {
+                p2_minesCount++;
+                p2_minesDisplay++;
+                p2_placingMine = true;
+            }
+        }
+
+        static void PreUpdate()
+        {
+            // update players' positions based on input
+            p1_x_pos += p1_x_input;
+            p1_x_pos = p1_x_pos.Clamp(p1_min_max_x.Item1, p1_min_max_x.Item2);
+
+            p1_y_pos += p1_y_input;
+            p1_y_pos = p1_y_pos.Clamp(p1_min_max_y.Item1, p1_min_max_y.Item2);
+
+            p2_x_pos += p2_x_input;
+            p2_x_pos = p2_x_pos.Clamp(p2_min_max_x.Item1, p2_min_max_x.Item2);
+
+            p2_y_pos += p2_y_input;
+            p2_y_pos = p2_y_pos.Clamp(p2_min_max_y.Item1, p2_min_max_y.Item2);
+
+            if (p1_minesCount >= 4)
+            {
+                turn += 1;
+                p1_minesCount = -1;
+            }
+
+            if (p2_minesCount >= 4)
+            {
+                turn += 1;
+                p2_minesCount = -1;
+            }
+
+            if (p1_minesCount == -1 && p2_minesCount == -1)
+            {
+                preGame = false;
+                isPlaying = true;
+            }
+        }
+
+        static void PreDraw()
+        {
+            // draw the background (playfield)
+            Console.SetCursorPosition(0, 0);
+            if (turn % 2 == 0)
+            {
+                Console.Clear();
+                Console.Write(p1_field);
+                // draw player 1
+                Console.SetCursorPosition(p1_x_pos, p1_y_pos);
+                if (p1_placingMine)
+                {
+                    Console.BackgroundColor = ConsoleColor.Gray;
+                    p1_placingMine = false;
+                }
+                Console.ForegroundColor = playerColors[0];
+                Console.Write("O");
+                Console.BackgroundColor = ConsoleColor.Black;
+                
+            }
+            else if(turn % 2 != 0)
+            {
+                Console.Clear();
+                Console.WriteLine(p2_field);
+                // draw player 2
+                Console.SetCursorPosition(p2_x_pos, p2_y_pos);
+                if (p2_placingMine)
+                {
+                    Console.BackgroundColor = ConsoleColor.Gray;
+                    p2_placingMine = false;
+                }
+                Console.ForegroundColor = playerColors[1];
+                Console.Write("O");
+                Console.BackgroundColor = ConsoleColor.Black;
+
+            }
+
+            Console.SetCursorPosition(0, 6);
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine($"Mines: {p1_minesDisplay}           Mines: {p2_minesDisplay}");
+
+            // draw the Turn Indicator
+            Console.SetCursorPosition(3, 7);
             Console.ForegroundColor = playerColors[turn % 2];
 
             Console.Write($"PLAYER {turn % 2 + 1}'S TURN!");
